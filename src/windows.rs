@@ -73,3 +73,30 @@ impl Ascii for u16 {
         *self & !((self.is_ascii_lowercase() as u16) << 5)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+
+    use crate::PathExt;
+
+    #[test]
+    fn test_normalize() {
+        let test_cases = &[
+            (r"C:///A//B", r"C:\A\B"),
+            (r"D:///A/./B", r"D:\A\B"),
+            (r"e:///A/foo/../B", r"e:\A\B"),
+            (r"c:/", r"c:\"),
+            (r"c:/../../..", r"c:\"),
+            (r"C:////a/b", r"C:\a\b"),
+            (r"//machine/share//a/b", r"\\machine\share\a\b"),
+            (r"\\.\NUL", r"\\.\NUL"),
+            (r"\\?\D:/XY\Z", r"\\?\D:\XY\Z"),
+            (r"C:\.", r"C:\"),
+        ];
+
+        for (input, expected) in test_cases {
+            assert_eq!(Path::new(input).normalize().unwrap(), Path::new(expected))
+        }
+    }
+}

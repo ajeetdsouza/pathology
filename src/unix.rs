@@ -18,7 +18,7 @@ impl PathExt for Path {
             let current_dir = env::current_dir().map_err(|_| (()))?;
             result = current_dir.as_os_str().as_bytes().to_vec();
         } else {
-            result = vec![SLASH];
+            result = vec![SEPARATOR];
         }
 
         for component in path.split(is_separator) {
@@ -30,8 +30,8 @@ impl PathExt for Path {
                     }
                 }
                 _ => {
-                    if result.last() != Some(&SLASH) {
-                        result.push(SLASH);
+                    if result.last() != Some(&SEPARATOR) {
+                        result.push(SEPARATOR);
                     }
                     result.extend_from_slice(component);
                 }
@@ -42,12 +42,38 @@ impl PathExt for Path {
     }
 }
 
-const SLASH: u8 = b'/';
+const SEPARATOR: u8 = b'/';
 
 fn is_absolute(path: &[u8]) -> bool {
-    path.first() == Some(&SLASH)
+    path.first() == Some(&SEPARATOR)
 }
 
 fn is_separator(b: &u8) -> bool {
-    b == &SLASH
+    b == &SEPARATOR
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+
+    use crate::PathExt;
+
+    #[test]
+    fn test_normalize() {
+        let test_cases = &[
+            ("/", "/"),
+            ("//", "//"),
+            ("///", "/"),
+            ("///foo/.//bar//", "/foo/bar"),
+            ("///foo/.//bar//.//..//.//baz", "/foo/baz"),
+            ("///..//./foo/.//bar", "/foo/bar"),
+            ("/foo/../../../bar", "/bar"),
+            ("/a/b/c/../../../x/y/z", "/x/y/z"),
+            ("///..//./foo/.//bar", "/foo/bar"),
+        ];
+
+        for (input, expected) in test_cases {
+            assert_eq!(Path::new(input).normalize().unwrap(), Path::new(expected))
+        }
+    }
 }
