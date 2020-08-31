@@ -1,55 +1,38 @@
 use std::env;
-use std::ffi::OsString;
-use std::os::unix::ffi::{OsStrExt, OsStringExt};
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 use crate::PathExt;
 
 impl PathExt for Path {
-    fn normalize(&self) -> Result<PathBuf, ()> {
-        let path = self.as_os_str().as_bytes();
-        if path.is_empty() {
-            return Err(()); // ENOENT: no such file or directory
-        }
+    fn abs(&self) -> Result<PathBuf, ()> {
+        let mut stack = Vec::new();
+        let mut components = self.components().peekable();
 
-        let mut result;
+        let current_dir;
+        match components.peek() {
+            Some(Component::RootDir) => stack.push(components.next().unwrap()),
+            _ => {
+                current_dir = env::current_dir().map_err(|_| (()))?;
+                stack.extend(current_dir.components());
+            }
+        };
 
-        if !is_absolute(path) {
-            let current_dir = env::current_dir().map_err(|_| (()))?;
-            result = current_dir.as_os_str().as_bytes().to_vec();
-        } else {
-            result = vec![SEPARATOR];
-        }
-
-        for component in path.split(is_separator) {
+        for component in components {
             match component {
-                b"" | b"." => (),
-                b".." => {
-                    if let Some(idx) = result.iter().rposition(is_separator) {
-                        result.truncate(idx.max(1))
+                Component::Normal(_) => stack.push(component),
+                Component::CurDir => (),
+                Component::ParentDir => {
+                    if stack.len() > 1 {
+                        let _ = stack.pop();
                     }
                 }
-                _ => {
-                    if result.last() != Some(&SEPARATOR) {
-                        result.push(SEPARATOR);
-                    }
-                    result.extend_from_slice(component);
-                }
+                Component::Prefix(_) => unreachable!("Windows only"),
+                Component::RootDir => unreachable!("root does not occur after first component"),
             }
         }
 
-        Ok(OsString::from_vec(result).into())
+        Ok(stack.iter().collect())
     }
-}
-
-const SEPARATOR: u8 = b'/';
-
-fn is_absolute(path: &[u8]) -> bool {
-    path.first() == Some(&SEPARATOR)
-}
-
-fn is_separator(b: &u8) -> bool {
-    b == &SEPARATOR
 }
 
 #[cfg(test)]
@@ -59,7 +42,7 @@ mod tests {
     use crate::PathExt;
 
     #[test]
-    fn test_normalize() {
+    fn test_abs() {
         let test_cases = &[
             ("/", "/"),
             ("//", "//"),
@@ -73,7 +56,7 @@ mod tests {
         ];
 
         for (input, expected) in test_cases {
-            assert_eq!(Path::new(input).normalize().unwrap(), Path::new(expected))
+            assert_eq!(Path::new(input).abs().unwrap(), Path::new(expected))
         }
     }
 }

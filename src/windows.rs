@@ -12,7 +12,9 @@ use crate::PathExt;
 
 impl PathExt for Path {
     #[allow(non_snake_case)]
-    fn normalize(&self) -> Result<PathBuf, ()> {
+    fn abs(&self) -> Result<PathBuf, ()> {
+        // TODO: handle empty paths
+
         let lpFileName: Vec<WCHAR> = self
             .as_os_str()
             .encode_wide()
@@ -81,7 +83,7 @@ mod tests {
     use crate::PathExt;
 
     #[test]
-    fn test_normalize() {
+    fn test_abs() {
         let test_cases = &[
             (r"C:///A//B", r"C:\A\B"),
             (r"D:///A/./B", r"D:\A\B"),
@@ -96,7 +98,7 @@ mod tests {
         ];
 
         for (input, expected) in test_cases {
-            assert_eq!(Path::new(input).normalize().unwrap(), Path::new(expected))
+            assert_eq!(Path::new(input).abs().unwrap(), Path::new(expected))
         }
     }
 }
