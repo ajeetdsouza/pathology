@@ -1,0 +1,26 @@
+
+[package]
+name = "pathology-fuzz"
+version = "0.0.0"
+authors = ["Automatically generated"]
+publish = false
+edition = "2018"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.3"
+
+[dependencies.pathology]
+path = ".."
+
+# Prevent this from interfering with workspaces
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "abs_parent"
+path = "fuzz_targets/abs_parent.rs"
+test = false
+doc = false
